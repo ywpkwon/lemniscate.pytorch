@@ -17,14 +17,16 @@ class NCEFunction(Function):
         inputSize = memory.size(1)
 
         # sample positives & negatives
-        idx.select(1,0).copy_(y.data)
+        idx.select(1,0).copy_(y.data)        # idx[:, 0] = y
 
         # sample correspoinding weights
         weight = torch.index_select(memory, 0, idx.view(-1))
         weight.resize_(batchSize, K+1, inputSize)
 
         # inner product
-        out = torch.bmm(weight, x.data.resize_(batchSize, inputSize, 1))
+        # out = torch.bmm(weight, x.data.resize_(batchSize, inputSize, 1))  # paul: original
+        # out = torch.bmm(weight, x.data.view(batchSize, inputSize, 1))     # paul: another workaround
+        out = torch.bmm(weight, torch.reshape(x, (batchSize, inputSize, 1)))
         out.div_(T).exp_() # batchSize * self.K+1
         x.data.resize_(batchSize, inputSize)
 
@@ -52,11 +54,12 @@ class NCEFunction(Function):
         gradOutput.data.mul_(out.data)
         # add temperature
         gradOutput.data.div_(T)
-
-        gradOutput.data.resize_(batchSize, 1, K+1)
         
         # gradient of linear
-        gradInput = torch.bmm(gradOutput.data, weight)
+        # gradOutput.data.resize_(batchSize, 1, K+1)      # paul: original
+        # gradInput = torch.bmm(gradOutput.data, weight)  # paul: original
+        # gradInput = torch.bmm(gradOutput.data.view(batchSize, 1, K+1), weight)  # paul: another workaround
+        gradInput = torch.bmm(torch.reshape(gradOutput, (batchSize, 1, K+1)), weight)
         gradInput.resize_as_(x)
 
         # update the non-parametric data
