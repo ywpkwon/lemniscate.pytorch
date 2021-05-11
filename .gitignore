@@ -1,9 +1,11 @@
 data/*
 checkpoint*/*
 logs/*
+.ipynb_checkpoints/
 
 *.pyc
 *.bak
 *.log
 *.tar
 *.pth
+*.pkl
