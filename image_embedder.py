@@ -15,6 +15,18 @@ import models
 import datasets
 
 
+# prepare preprocessing
+normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                 std=[0.229, 0.224, 0.225])
+
+transform = transforms.Compose([
+    transforms.Resize(256),
+    transforms.CenterCrop(224),
+    transforms.ToTensor(),
+    normalize,
+])
+
+
 def get_model(args):
     # prepare mode
     model = models.__dict__[args.arch](low_dim=128)
@@ -31,6 +43,16 @@ def get_model(args):
     # optimizer.load_state_dict(checkpoint['optimizer'])
     print("=> loaded checkpoint (epoch {})".format(checkpoint['epoch']))
     return model
+
+def inference_embeddings(model, imgfs):
+    entire_features = np.zeros((len(imgfs), 128), np.float32)
+    with torch.no_grad():
+        for ith, imgf in enumerate(tqdm(imgfs)):
+            im = Image.open(imgf)
+            x = transform(im)
+            features = model(x[None, :].cuda())
+            entire_features[ith] = features[0].detach().cpu().numpy()
+    return entire_features
 
 
 if __name__ == "__main__":
@@ -49,16 +71,6 @@ if __name__ == "__main__":
     print(args.dir)
     assert os.path.isdir(args.dir), f'{args.dir} doesn''t exist'
 
-    # prepare preprocessing
-    normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                     std=[0.229, 0.224, 0.225])
-
-    transform = transforms.Compose([
-        transforms.Resize(256),
-        transforms.CenterCrop(224),
-        transforms.ToTensor(),
-        normalize,
-    ])
 
     model = get_model(args)
     model.eval()
@@ -66,14 +78,15 @@ if __name__ == "__main__":
     cudnn.benchmark = True
 
     imgfs = sorted(glob.glob(os.path.join(args.dir, '*')))
-    entire_features = np.zeros((len(imgfs), 128), np.float32)
+    entire_features = inference_embeddings(model, imgfs)
+    # entire_features = np.zeros((len(imgfs), 128), np.float32)
 
-    with torch.no_grad():
-        for ith, imgf in enumerate(tqdm(imgfs)):
-            im = Image.open(imgf)
-            x = transform(im)
-            features = model(x[None, :].cuda())
-            entire_features[ith] = features[0].detach().cpu().numpy()
+    # with torch.no_grad():
+    #     for ith, imgf in enumerate(tqdm(imgfs)):
+    #         im = Image.open(imgf)
+    #         x = transform(im)
+    #         features = model(x[None, :].cuda())
+    #         entire_features[ith] = features[0].detach().cpu().numpy()
 
     with open('embedding.pkl', 'wb') as f:
         pickle.dump(
