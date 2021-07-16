@@ -88,7 +88,8 @@ if __name__ == "__main__":
     #         features = model(x[None, :].cuda())
     #         entire_features[ith] = features[0].detach().cpu().numpy()
 
-    with open('embedding.pkl', 'wb') as f:
+    dir_name = os.path.basename(args.dir)
+    with open(f'{dir_name}.pkl', 'wb') as f:
         pickle.dump(
             {'paths': imgfs,
              'features': entire_features}, f)
